@@ -22,14 +22,17 @@ use Webmozart\PhpScoper\NodeVisitor\UseNamespaceScoperNodeVisitor;
 
 class Scoper
 {
-    /**
-     * @var Parser
-     */
+    /** @var Parser */
     private $parser;
 
-    public function __construct(Parser $parser)
+    /** @var ScoperOptions */
+    private $options;
+
+
+    public function __construct(Parser $parser, ScoperOptions $options)
     {
         $this->parser = $parser;
+        $this->options = $options;
     }
 
     /**
@@ -38,12 +41,12 @@ class Scoper
      *
      * @return string
      */
-    public function addNamespacePrefix($content, $prefix)
+    public function scope($content)
     {
-        $traverser = new NodeTraverser();
-        $traverser->addVisitor(new NamespaceScoperNodeVisitor($prefix));
-        $traverser->addVisitor(new UseNamespaceScoperNodeVisitor($prefix));
-        $traverser->addVisitor(new FullyQualifiedNamespaceUseScoperNodeVisitor($prefix));
+        $traverser = new NodeTraverser;
+        $traverser->addVisitor(new NamespaceScoperNodeVisitor(clone $this->options));
+        $traverser->addVisitor(new UseNamespaceScoperNodeVisitor(clone $this->options));
+        $traverser->addVisitor(new FullyQualifiedNamespaceUseScoperNodeVisitor(clone $this->options));
 
         try {
             $statements = $this->parser->parse($content);
@@ -53,7 +56,7 @@ class Scoper
 
         $statements = $traverser->traverse($statements);
 
-        $prettyPrinter = new Standard();
+        $prettyPrinter = new Standard;
 
         return $prettyPrinter->prettyPrintFile($statements)."\n";
     }

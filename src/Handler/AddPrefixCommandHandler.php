@@ -17,6 +17,7 @@ use Symfony\Component\Finder\Finder;
 use Webmozart\Console\Api\Args\Args;
 use Webmozart\Console\Api\IO\IO;
 use Webmozart\PhpScoper\Exception\ParsingException;
+use Webmozart\PhpScoper\ScoperOptions;
 use Webmozart\PhpScoper\Scoper;
 
 /**
@@ -36,18 +37,11 @@ class AddPrefixCommandHandler
      */
     private $finder;
 
-    /**
-     * @var Scoper
-     */
-    private $scoper;
 
     public function __construct()
     {
-        $this->filesystem = new Filesystem();
-        $this->finder = new Finder();
-
-        $parser = (new ParserFactory())->create(ParserFactory::PREFER_PHP7);
-        $this->scoper = new Scoper($parser);
+        $this->filesystem = new Filesystem;
+        $this->finder = new Finder;
     }
 
     /**
@@ -60,10 +54,18 @@ class AddPrefixCommandHandler
      */
     public function handle(Args $args, IO $io)
     {
-        $prefix = rtrim($args->getArgument('prefix'), '\\');
-        $paths = $args->getArgument('path');
+        global $declaredClasses, $declaredInterfaces;
 
-        foreach ($paths as $path) {
+        $options = new ScoperOptions;
+        $options->prefix = rtrim($args->getArgument('prefix'), '\\');
+        $options->declaredClasses = $declaredClasses;
+        $options->declaredInterfaces = $declaredInterfaces;
+
+        $parser = (new ParserFactory)->create(ParserFactory::PREFER_PHP7);
+        $scoper = new Scoper($parser, $options);
+
+        foreach ($args->getArgument('path') as $path) {
+
             if (!$this->filesystem->isAbsolutePath($path)) {
                 $path = getcwd().DIRECTORY_SEPARATOR.$path;
             }
@@ -72,25 +74,22 @@ class AddPrefixCommandHandler
                 $this->finder->files()->name('*.php')->in($path);
 
                 foreach ($this->finder as $file) {
-                    $this->scopeFile($file->getPathName(), $prefix, $io);
+                    $this->scopeFile($scoper, $file->getPathName(), $io);
                 }
-            }
 
-            if (!is_file($path)) {
-                continue;
+            } elseif (is_file($path)) {
+                $this->scopeFile($scoper, $path, $io);
             }
-
-            $this->scopeFile($path, $prefix, $io);
         }
 
         return 0;
     }
 
-    private function scopeFile($path, $prefix, IO $io)
+    private function scopeFile(Scoper $scoper, $path, IO $io)
     {
         $fileContent = file_get_contents($path);
         try {
-            $scoppedContent = $this->scoper->addNamespacePrefix($fileContent, $prefix);
+            $scoppedContent = $scoper->scope($fileContent);
             $this->filesystem->dumpFile($path, $scoppedContent);
             $io->writeLine(sprintf('Scoping %s. . . Success', $path));
         } catch (ParsingException $exception) {

@@ -6,23 +6,29 @@ use PhpParser\Node;
 use PhpParser\Node\Name;
 use PhpParser\Node\Stmt\UseUse;
 use PhpParser\NodeVisitorAbstract;
+use Webmozart\PhpScoper\ScoperOptions;
 
 class UseNamespaceScoperNodeVisitor extends NodeVisitorAbstract
 {
-    /**
-     * @var string
-     */
-    private $prefix;
+    /** @var ScoperOptions */
+    private $options;
 
-    public function __construct($prefix)
+    public function __construct(ScoperOptions $options)
     {
-        $this->prefix = $prefix;
+        $this->options = $options;
     }
 
     public function enterNode(Node $node)
     {
         if ($node instanceof UseUse) {
-            $node->name = Name::concat($this->prefix, $node->name);
+            if (in_array((string) $node->name, $this->options->declaredClasses)) {
+                return NULL;
+
+            } elseif (in_array((string) $node->name, $this->options->declaredInterfaces)) {
+                return NULL;
+            }
+
+            $node->name = Name::concat($this->options->prefix, $node->name);
         }
     }
 }
