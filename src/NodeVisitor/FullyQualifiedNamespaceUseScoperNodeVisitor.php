@@ -28,7 +28,7 @@ class FullyQualifiedNamespaceUseScoperNodeVisitor extends NodeVisitorAbstract
                 return NULL;
             }
 
-            return new Name(Name::concat($this->options->prefix, (string) $node));
+            return FullyQualified::concat($this->options->prefix, (string) $node);
         }
     }
 }
